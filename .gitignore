@@ -1,0 +1,45 @@
+# Environment files
+.env
+**/.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Frontend / Node
+node_modules/
+dist/
+dist-ssr/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE / editor
+.vscode/
+.idea/
+.DS_Store
+
+# Generated project data
+catboost_info/
+data/local_memory_db/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.tmp
+
+# Notebook checkpoints
+.ipynb_checkpoints/

@@ -1,0 +1,45 @@
+FuturePath — Model Performance Report (New Dataset)
+============================================================
+
+Dataset File: d:\career c fyp\futurepath\data\FuturePath_Dataset_Cleaned.xlsx
+Features:     27 features
+Classes:      38 careers
+
+--- Metrics Table ---
+Model Name                | Accuracy   | Macro-F1   | Top-3 Acc 
+------------------------------------------------------------
+LightGBM                  | 0.7602     | 0.7734     | 0.9349
+XGBoost                   | 0.7532     | 0.7670     | 0.9356
+CatBoost                  | 0.7379     | 0.7481     | 0.9236
+RandomForest              | 0.7693     | 0.7810     | 0.9417
+Stacking Ensemble         | 0.7637     | 0.7772     | 0.9317
+
+--- Within-Stream Accuracy ---
+Stream: Pre-Medical
+  * LightGBM        : 0.7675
+  * XGBoost         : 0.7636
+  * CatBoost        : 0.7400
+  * RandomForest    : 0.7789
+  * Stacking        : 0.7706
+
+Stream: ICS
+  * LightGBM        : 0.7849
+  * XGBoost         : 0.7745
+  * CatBoost        : 0.7685
+  * RandomForest    : 0.7932
+  * Stacking        : 0.7896
+
+Stream: Pre-Engineering
+  * LightGBM        : 0.7201
+  * XGBoost         : 0.7115
+  * CatBoost        : 0.7050
+  * RandomForest    : 0.7298
+  * Stacking        : 0.7222
+
+Stream: Arts
+  * LightGBM        : 0.7833
+  * XGBoost         : 0.7788
+  * CatBoost        : 0.7470
+  * RandomForest    : 0.7871
+  * Stacking        : 0.7886
+

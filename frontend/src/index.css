@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: "Space Grotesk", sans-serif;
+  }
+
+  body {
+    @apply bg-dark text-white font-grotesk overflow-x-hidden;
+    margin: 0;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  /* ── Hide number input spinners globally ── */
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type=number] {
+    -moz-appearance: textfield;
+  }
+
+  /* ── Hide scrollbars for scrollbar-thin class ── */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+    background: transparent;
+    display: none;
+  }
+  .scrollbar-thin {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

@@ -1,0 +1,355 @@
+{
+  "meta_info": {
+    "total_questions": 60,
+    "version": "3.1",
+    "description": "Standardized Career Assessment for Pakistani FSc/ICS/Arts Students — DAT-style Aptitude (4 subscales matching model features), IPIP-style Big Five (balanced keying), Holland RIASEC Interest Profiler (equal items per type)",
+    "structure": {
+      "aptitude_test": "20 items: 5 Math, 5 Logic, 5 Verbal, 5 Applied Problem-Solving — matches model features Aptitude_Math, Aptitude_Logic, Aptitude_Verbal, Aptitude_Spatial",
+      "psychology_test": "20 items: 4 per Big Five trait, 2 positive + 2 negative keyed each",
+      "interest_test": "20 items: RIASEC types with near-equal coverage, tagged to dataset career keywords"
+    },
+    "references": [
+      "IPIP International Personality Item Pool (ipip.ori.org)",
+      "Differential Aptitude Test (DAT) Framework",
+      "Holland RIASEC / O*NET Interest Profiler",
+      "Torrance-style divergent thinking adapted to MCQ format for Applied Problem-Solving subscale"
+    ],
+    "administration": {
+      "recommended_time_minutes": 45,
+      "aptitude_time_minutes": 25,
+      "psychology_time_minutes": 10,
+      "interest_time_minutes": 10,
+      "instructions_en": "There are no right or wrong answers in Sections 2 and 3. Answer honestly for the most accurate career guidance.",
+      "instructions_ur": "Section 2 aur 3 mein koi jawab sahih ya ghalat nahi. Durust rehnumai ke liye imandari se jawab dein."
+    }
+  },
+  "scoring_rules": {
+    "aptitude": {
+      "method": "Subscale Score = (sum of weights of correctly answered questions / sum of weights of all questions in that subscale) * 100. Weights: easy = 1, medium = 2, hard = 3.",
+      "output_features": {
+        "Aptitude_Math": "0-100",
+        "Aptitude_Logic": "0-100",
+        "Aptitude_Verbal": "0-100",
+        "Aptitude_Spatial": "0-100"
+      },
+      "note": "Aptitude_Spatial category is displayed as 'Applied Problem-Solving' in user-facing UI labels for construct validity."
+    },
+    "psychology": {
+      "method": "Likert 1-5 per item. Negative-keyed items are reverse-scored (6 - answer). Trait raw = mean of its 4 items (range 1-5). Model feature = raw * 2 (range 2-10, matches dataset scale 1-10).",
+      "output_features": {
+        "Psych_Openness": "1-10",
+        "Psych_Conscientiousness": "1-10",
+        "Psych_Extraversion": "1-10",
+        "Psych_Agreeableness": "1-10",
+        "Psych_Neuroticism": "1-10"
+      }
+    },
+    "interest": {
+      "method": "Yes = 2, Maybe = 1, No = 0 per item. For each RIASEC type: score = (points earned / max possible points for that type) * 100. Max points: R = 8 (4 items), I = 8 (4 items), A = 6 (3 items), S = 6 (3 items), E = 6 (3 items), C = 6 (3 items). Outputs 6 numeric features directly — no text generation, no TF-IDF.",
+      "example": "Student answers I-items: Yes, Yes, Yes, Maybe = 7 of 8 points -> Interest_I = round(7/8*100) = 88",
+      "output_features": {
+        "Interest_R": "0-100",
+        "Interest_I": "0-100",
+        "Interest_A": "0-100",
+        "Interest_S": "0-100",
+        "Interest_E": "0-100",
+        "Interest_C": "0-100"
+      }
+    }
+  },
+  "aptitude_test": {
+    "description": "DAT-style aptitude: Numerical Ability, Logical/Abstract Reasoning, Verbal Reasoning, Creative Thinking. FSc difficulty level. 4 options, 1 correct.",
+    "questions": [
+      {
+        "id": "APT_M1", "category": "Math",
+        "text_en": "A shopkeeper buys an article for Rs. 800 and sells it at a 15% profit. What is the selling price?",
+        "text_ur": "Aik dukandar aik cheez Rs. 800 mein khareedta hai aur 15% munafa par bechta hai. Farokht ki qeemat kya hai?",
+        "options": {"A": "Rs. 900", "B": "Rs. 920", "C": "Rs. 850", "D": "Rs. 960"},
+        "correct": "B", "difficulty": "easy"
+      },
+      {
+        "id": "APT_M2", "category": "Math",
+        "text_en": "The ratio of boys to girls in a class is 3:5. If there are 40 students in total, how many are girls?",
+        "text_ur": "Aik class mein larkon aur larkiyon ka nisbat 3:5 hai. Agar kul 40 talib-ilm hain, to larkiyan kitni hain?",
+        "options": {"A": "20", "B": "15", "C": "25", "D": "30"},
+        "correct": "C", "difficulty": "easy"
+      },
+      {
+        "id": "APT_M3", "category": "Math",
+        "text_en": "A sum of Rs. 12,000 is invested at 10% simple interest per annum. What is the total amount after 3 years?",
+        "text_ur": "Rs. 12,000 ko 10% salana saada sood par lagaya jata hai. 3 saal baad kul raqam kya hogi?",
+        "options": {"A": "Rs. 14,400", "B": "Rs. 15,600", "C": "Rs. 13,200", "D": "Rs. 16,000"},
+        "correct": "B", "difficulty": "medium"
+      },
+      {
+        "id": "APT_M4", "category": "Math",
+        "text_en": "A train 150 m long passes a pole in 15 seconds. What is the speed of the train in km/h?",
+        "text_ur": "150 metre lambi train aik khambe ko 15 second mein paas karti hai. Train ki raftaar km/h mein kya hai?",
+        "options": {"A": "30 km/h", "B": "36 km/h", "C": "40 km/h", "D": "45 km/h"},
+        "correct": "B", "difficulty": "medium"
+      },
+      {
+        "id": "APT_M5", "category": "Math",
+        "text_en": "The average of five numbers is 42. If one number is removed, the average of the remaining four becomes 40. What number was removed?",
+        "text_ur": "Paanch adaad ka ausat 42 hai. Agar aik adad hata diya jaye to baqi chaar ka ausat 40 ho jata hai. Konsa adad hataya gaya?",
+        "options": {"A": "42", "B": "48", "C": "50", "D": "44"},
+        "correct": "C", "difficulty": "hard"
+      },
+      {
+        "id": "APT_L1", "category": "Logic",
+        "text_en": "Complete the series: 2, 6, 18, 54, ___",
+        "text_ur": "Series mukammal karein: 2, 6, 18, 54, ___",
+        "options": {"A": "108", "B": "162", "C": "148", "D": "180"},
+        "correct": "B", "difficulty": "easy"
+      },
+      {
+        "id": "APT_L2", "category": "Logic",
+        "text_en": "Statement: All engineers are problem-solvers. Some problem-solvers are inventors. Conclusion: Some engineers are inventors.",
+        "text_ur": "Bayaan: Tamam engineers masla-hal karne walay hain. Kuch masla-hal karne walay muujid hain. Nateeja: Kuch engineers muujid hain.",
+        "options": {"A": "Definitely true", "B": "Probably true", "C": "Cannot be determined", "D": "Definitely false"},
+        "correct": "C", "difficulty": "hard"
+      },
+      {
+        "id": "APT_L3", "category": "Logic",
+        "text_en": "If CLOUD is coded as DMPVE, how is STORM coded?",
+        "text_ur": "Agar CLOUD ko DMPVE likhein, to STORM ko kaise likhein ge?",
+        "options": {"A": "TUPSN", "B": "TVQTN", "C": "UVPSO", "D": "RUSQN"},
+        "correct": "A", "difficulty": "medium"
+      },
+      {
+        "id": "APT_L4", "category": "Logic",
+        "text_en": "If it takes 5 machines 5 minutes to make 5 widgets, how long would it take 100 machines to make 100 widgets?",
+        "text_ur": "Agar 5 machines ko 5 widgets banane mein 5 minute lagtay hain, to 100 machines ko 100 widgets banane mein kitna waqt lagay ga?",
+        "options": {"A": "100 min", "B": "20 min", "C": "5 min", "D": "50 min"},
+        "correct": "C", "difficulty": "medium"
+      },
+      {
+        "id": "APT_L5", "category": "Logic",
+        "text_en": "In a certain school, all science students study Chemistry. Ali does not study Chemistry. Which conclusion MUST be true?",
+        "text_ur": "Aik school mein tamam science ke talib-ilm Chemistry parhte hain. Ali Chemistry nahi parhta. Konsa nateeja lazmi durust hai?",
+        "options": {"A": "Ali is an arts student", "B": "Ali is not a science student", "C": "Ali dislikes science", "D": "Ali studies Biology"},
+        "correct": "B", "difficulty": "medium"
+      },
+      {
+        "id": "APT_V1", "category": "Verbal",
+        "text_en": "Choose the word most similar in meaning to 'Pragmatic':",
+        "text_ur": "'Pragmatic' ke qareebi maani ka lafz chunein:",
+        "options": {"A": "Idealistic", "B": "Practical", "C": "Emotional", "D": "Theoretical"},
+        "correct": "B", "difficulty": "medium"
+      },
+      {
+        "id": "APT_V2", "category": "Verbal",
+        "text_en": "Choose the word opposite in meaning to 'Eloquent':",
+        "text_ur": "'Eloquent' ke mutazad lafz ka intikhab karein:",
+        "options": {"A": "Articulate", "B": "Fluent", "C": "Inarticulate", "D": "Persuasive"},
+        "correct": "C", "difficulty": "medium"
+      },
+      {
+        "id": "APT_V3", "category": "Verbal",
+        "text_en": "Read: 'Despite initial setbacks, the team persevered and ultimately succeeded.' What does 'persevered' most likely mean here?",
+        "text_ur": "'Despite initial setbacks, the team persevered and ultimately succeeded.' — yahan 'persevered' ka matlab kya hai?",
+        "options": {"A": "Gave up", "B": "Continued with determination", "C": "Changed direction", "D": "Complained"},
+        "correct": "B", "difficulty": "easy"
+      },
+      {
+        "id": "APT_V4", "category": "Verbal",
+        "text_en": "Knowledge is to Ignorance as Courage is to ___:",
+        "text_ur": "Ilm ka ta'aluq Jahalat se hai jaise Himmat ka ta'aluq ___ se hai:",
+        "options": {"A": "Bravery", "B": "Strength", "C": "Cowardice", "D": "Wisdom"},
+        "correct": "C", "difficulty": "easy"
+      },
+      {
+        "id": "APT_V5", "category": "Verbal",
+        "text_en": "Select the correct sentence:",
+        "text_ur": "Durust jumla chunein:",
+        "options": {"A": "Neither the students nor the teacher were present.", "B": "Neither the students nor the teacher was present.", "C": "Neither the students or the teacher were present.", "D": "Neither the students or teacher was present."},
+        "correct": "B", "difficulty": "hard"
+      },
+      {
+        "id": "APT_C1", "category": "Applied Problem-Solving",
+        "text_en": "A factory has thousands of leftover plastic bottles. Which reuse idea is the MOST original and practical?",
+        "text_ur": "Aik factory ke paas hazaron bachi hui plastic ki botlein hain. Konsa dobara istemaal ka khayal sab se zyada munfarid aur qabil-e-amal hai?",
+        "options": {"A": "Throw them away", "B": "Sell them as bottles again", "C": "Build low-cost vertical garden walls for schools", "D": "Store them in a warehouse"},
+        "correct": "C", "difficulty": "easy"
+      },
+      {
+        "id": "APT_C2", "category": "Applied Problem-Solving",
+        "text_en": "Which pair of words forms the most meaningful NEW connection? (Remote association)",
+        "text_ur": "Konsa joda sab se ba-maani NAYA ta'aluq banata hai? (Remote association)",
+        "options": {"A": "Water : Drink", "B": "Falling leaves : Product life cycles", "C": "Book : Pages", "D": "Car : Road"},
+        "correct": "B", "difficulty": "medium"
+      },
+      {
+        "id": "APT_C3", "category": "Applied Problem-Solving",
+        "text_en": "Your village school has no electricity for fans in summer. Which solution shows the most creative problem-solving?",
+        "text_ur": "Aap ke gaon ke school mein garmiyon mein pankhon ke liye bijli nahi. Konsa hal sab se takhleqi hai?",
+        "options": {"A": "Close the school in summer", "B": "Ask students to bring hand fans", "C": "Design cross-ventilation with wind-catching windows facing the breeze", "D": "Complain to the government"},
+        "correct": "C", "difficulty": "medium"
+      },
+      {
+        "id": "APT_C4", "category": "Applied Problem-Solving",
+        "text_en": "A square, a triangle, and a circle are combined to make a symbol for a science club. Which combination best communicates 'discovery'?",
+        "text_ur": "Aik murabba, tikon aur daira mila kar science club ka nishan banana hai. Konsa imtizaaj 'daryaft' ko behtareen zahir karta hai?",
+        "options": {"A": "All three stacked randomly", "B": "A triangle (arrow) breaking out of a circle (boundary of known)", "C": "A square alone", "D": "Three separate shapes in a row"},
+        "correct": "B", "difficulty": "hard"
+      },
+      {
+        "id": "APT_C5", "category": "Applied Problem-Solving",
+        "text_en": "Which question is the MOST useful to ask when improving a rickshaw for Pakistani cities?",
+        "text_ur": "Pakistani shehron ke liye rickshaw behtar banane ke liye konsa sawal sab se zyada mufeed hai?",
+        "options": {"A": "What color should it be?", "B": "How can it carry more passengers safely while producing less noise and smoke?", "C": "Should it have a radio?", "D": "How can it look like a car?"},
+        "correct": "B", "difficulty": "medium"
+      }
+    ]
+  },
+  "psychology_test": {
+    "description": "IPIP-style Big Five (OCEAN). 4 items per trait, balanced 2 positive + 2 negative keying to control agreement bias. Scale: 1 (Strongly Disagree) to 5 (Strongly Agree).",
+    "questions": [
+      { "id": "PSY_O1", "trait": "Openness", "weight": "positive",
+        "text_en": "I am quick to understand new concepts and abstract ideas.",
+        "text_ur": "Main naye tasawwuraat aur tajreedi khayalat ko jaldi samajh leta/leti hoon." },
+      { "id": "PSY_O2", "trait": "Openness", "weight": "positive",
+        "text_en": "I enjoy experimenting with new approaches rather than sticking to tried-and-tested methods.",
+        "text_ur": "Main puranay tariqon ki bajaye naye tariqay azmana pasand karta/karti hoon." },
+      { "id": "PSY_O3", "trait": "Openness", "weight": "negative",
+        "text_en": "I prefer routine work over tasks that require creative thinking.",
+        "text_ur": "Mujhay takhleqi soch walay kaam ki bajaye mamool ka kaam zyada pasand hai." },
+      { "id": "PSY_O4", "trait": "Openness", "weight": "negative",
+        "text_en": "I find abstract or theoretical discussions boring and pointless.",
+        "text_ur": "Mujhay tajreedi ya nazariyati guftugu boring aur bemaqsad lagti hai." },
+      { "id": "PSY_C1", "trait": "Conscientiousness", "weight": "positive",
+        "text_en": "I set long-term goals and work toward them systematically.",
+        "text_ur": "Main taweel muddat ke maqasid muqarrar karta/karti hoon aur ba-qaida un par amal karta/karti hoon." },
+      { "id": "PSY_C2", "trait": "Conscientiousness", "weight": "positive",
+        "text_en": "I pay close attention to accuracy and detail in my work.",
+        "text_ur": "Main apnay kaam mein durusti aur tafseelat par ghor se tawajjo deta/deti hoon." },
+      { "id": "PSY_C3", "trait": "Conscientiousness", "weight": "negative",
+        "text_en": "I sometimes neglect my responsibilities when they become difficult.",
+        "text_ur": "Jab zimmedarian mushkil ho jayein to main kabhi kabhi un se ghaflat barta/barti hoon." },
+      { "id": "PSY_C4", "trait": "Conscientiousness", "weight": "negative",
+        "text_en": "I often leave assignments until the last moment.",
+        "text_ur": "Main aksar assignments aakhri waqt tak chhor deta/deti hoon." },
+      { "id": "PSY_E1", "trait": "Extraversion", "weight": "positive",
+        "text_en": "I feel energized after spending time with a large group of people.",
+        "text_ur": "Logon ke baray group mein waqt guzarnay ke baad main purjosh mehsoos karta/karti hoon." },
+      { "id": "PSY_E2", "trait": "Extraversion", "weight": "positive",
+        "text_en": "I naturally take the lead in group discussions and team projects.",
+        "text_ur": "Group bahas aur team projects mein main qudrati taur par qayadat karta/karti hoon." },
+      { "id": "PSY_E3", "trait": "Extraversion", "weight": "negative",
+        "text_en": "I prefer listening and observing rather than being the center of conversation.",
+        "text_ur": "Main guftugu ka markaz ban'nay ki bajaye sun'na aur mushahida karna pasand karta/karti hoon." },
+      { "id": "PSY_E4", "trait": "Extraversion", "weight": "negative",
+        "text_en": "Speaking in front of the whole class makes me want to avoid the situation entirely.",
+        "text_ur": "Poori class ke samnay bolna mujhe is surat-e-haal se bachne par majboor karta hai." },
+      { "id": "PSY_A1", "trait": "Agreeableness", "weight": "positive",
+        "text_en": "I go out of my way to help others, even when it inconveniences me.",
+        "text_ur": "Main dusron ki madad ke liye apni takleef bhi bardaasht karta/karti hoon." },
+      { "id": "PSY_A2", "trait": "Agreeableness", "weight": "positive",
+        "text_en": "I try to understand another person's perspective before forming my own judgment.",
+        "text_ur": "Apni rai banane se pehlay main dusray ka nuqta-e-nazar samajhnay ki koshish karta/karti hoon." },
+      { "id": "PSY_A3", "trait": "Agreeableness", "weight": "negative",
+        "text_en": "I tend to be critical of others' mistakes rather than offering encouragement.",
+        "text_ur": "Main dusron ki ghaltiyon par hosla afzai ki bajaye tanqeed karta/karti hoon." },
+      { "id": "PSY_A4", "trait": "Agreeableness", "weight": "negative",
+        "text_en": "In group work, winning the argument matters more to me than group harmony.",
+        "text_ur": "Group ke kaam mein mere liye bahas jeetna group ke ittefaq se zyada ahem hai." },
+      { "id": "PSY_N1", "trait": "Neuroticism", "weight": "positive",
+        "text_en": "I find it difficult to remain calm when faced with unexpected problems.",
+        "text_ur": "Ghair mutawaqqa masail ka saamna karnay par main pursukoon rehna mushkil paata/paati hoon." },
+      { "id": "PSY_N2", "trait": "Neuroticism", "weight": "positive",
+        "text_en": "I frequently experience self-doubt about my academic abilities.",
+        "text_ur": "Main aksar apni taaleemi salahiyaton par shak karta/karti hoon." },
+      { "id": "PSY_N3", "trait": "Neuroticism", "weight": "negative",
+        "text_en": "I maintain composure and think clearly even under academic pressure.",
+        "text_ur": "Taaleemi dabao mein bhi main itminaan rakhta/rakhti hoon aur saaf sochta/sochti hoon." },
+      { "id": "PSY_N4", "trait": "Neuroticism", "weight": "negative",
+        "text_en": "Small setbacks rarely affect my motivation for long.",
+        "text_ur": "Choti nakamiyan meri lagan ko shaz-o-nadir hi lambay arsay tak mutasir karti hain." }
+    ]
+  },
+  "interest_test": {
+    "description": "Holland RIASEC Interest Profiler. 20 activity items, near-equal per type (R:4, I:4, A:3, S:3, E:3, C:3). Answer: Yes (2) / Maybe (1) / No (0). Scores convert directly to the 6 numeric model features Interest_R/I/A/S/E/C (0-100). career_keywords tags are kept for display/explanation purposes only.",
+    "questions": [
+      { "id": "INT_R1", "riasec": "Realistic",
+        "text_en": "Designing or building mechanical systems, circuits, or structures.",
+        "text_ur": "Mechanical nizaam, circuits ya tameerati dhanchay banana ya design karna.",
+        "career_keywords": "circuits and electrical systems, machines and engines, buildings and construction" },
+      { "id": "INT_R2", "riasec": "Realistic",
+        "text_en": "Troubleshooting technical problems with equipment or machinery.",
+        "text_ur": "Machines ya aalaajaat ki fanni kharabiyan dhoond kar theek karna.",
+        "career_keywords": "machines and engines, mechanical systems" },
+      { "id": "INT_R3", "riasec": "Realistic",
+        "text_en": "Managing crop production and modern farming techniques.",
+        "text_ur": "Fasal ki paidawaar aur jadeed kashthkari ke tariqon ka intizaam karna.",
+        "career_keywords": "crops and modern farming" },
+      { "id": "INT_R4", "riasec": "Realistic",
+        "text_en": "Serving in a disciplined defense or military role.",
+        "text_ur": "Nizam-o-zabt walay difai ya fauji kirdaar mein khidmat karna.",
+        "career_keywords": "defense and military service" },
+      { "id": "INT_I1", "riasec": "Investigative",
+        "text_en": "Writing code to automate tasks or build software applications.",
+        "text_ur": "Kaam ko khud-kar karnay ke liye code likhna ya software banana.",
+        "career_keywords": "software and coding, building mobile apps" },
+      { "id": "INT_I2", "riasec": "Investigative",
+        "text_en": "Analyzing datasets to identify trends, patterns, or anomalies.",
+        "text_ur": "Data ka tajziya karke rujhanaat, patterns ya ghair-mamuli cheezein dhoondna.",
+        "career_keywords": "data and machine learning, statistics and analysis" },
+      { "id": "INT_I3", "riasec": "Investigative",
+        "text_en": "Studying human anatomy, physiology, or the science of diseases.",
+        "text_ur": "Insaani jism ki saakht, af'aal ya beemariyon ki science ka mutala'a karna.",
+        "career_keywords": "human anatomy and clinical medicine, diseases and laboratory diagnosis" },
+      { "id": "INT_I4", "riasec": "Investigative",
+        "text_en": "Conducting experiments in a laboratory to test scientific hypotheses.",
+        "text_ur": "Laboratory mein tajurbaat karke science ke mafroozon ko janchna.",
+        "career_keywords": "medicines and pharmacy, laboratory science and research" },
+      { "id": "INT_A1", "riasec": "Artistic",
+        "text_en": "Creating visual designs, brand identities, or multimedia content.",
+        "text_ur": "Visual designs, brand ki pehchaan ya multimedia mawad banana.",
+        "career_keywords": "visual design and creativity, clothing design and fashion" },
+      { "id": "INT_A2", "riasec": "Artistic",
+        "text_en": "Writing creative content such as stories, scripts, or articles.",
+        "text_ur": "Takhleqi mawad likhna jaise kahaniyan, scripts ya mazameen.",
+        "career_keywords": "news and journalism, storytelling and media" },
+      { "id": "INT_A3", "riasec": "Artistic",
+        "text_en": "Producing or presenting content for TV, social media, or digital platforms.",
+        "text_ur": "TV, social media ya digital platforms ke liye mawad banana ya pesh karna.",
+        "career_keywords": "media production and broadcasting" },
+      { "id": "INT_S1", "riasec": "Social",
+        "text_en": "Providing care and treatment to patients in a clinical setting.",
+        "text_ur": "Mareezon ko clinic ya hospital mein ilaaj aur dekhbhaal faraham karna.",
+        "career_keywords": "patient care and nursing, physical therapy and rehabilitation" },
+      { "id": "INT_S2", "riasec": "Social",
+        "text_en": "Explaining complex concepts to others in an accessible and engaging way.",
+        "text_ur": "Mushkil tasawwuraat ko dusron ko aasaan aur dilchasp andaaz mein samjhana.",
+        "career_keywords": "teaching and education" },
+      { "id": "INT_S3", "riasec": "Social",
+        "text_en": "Counseling individuals through personal, academic, or emotional challenges.",
+        "text_ur": "Logon ki zaati, taaleemi ya jazbati mushkilat mein mashwara dena.",
+        "career_keywords": "human behavior and psychology" },
+      { "id": "INT_E1", "riasec": "Enterprising",
+        "text_en": "Leading a team to achieve strategic objectives within a deadline.",
+        "text_ur": "Aik team ki qayadat karke muqarrara waqt mein hukmat-e-amali maqasid haasil karna.",
+        "career_keywords": "business management and leadership" },
+      { "id": "INT_E2", "riasec": "Enterprising",
+        "text_en": "Negotiating deals, presenting proposals, or advocating a legal position.",
+        "text_ur": "Sauday karna, tajweezat pesh karna ya qanooni moaqif ki wakaalat karna.",
+        "career_keywords": "law and justice, courts and advocacy" },
+      { "id": "INT_E3", "riasec": "Enterprising",
+        "text_en": "Identifying market opportunities and developing a business plan.",
+        "text_ur": "Market ke mawaqay pehchanna aur karobari mansooba banana.",
+        "career_keywords": "startups and entrepreneurship, marketing and branding" },
+      { "id": "INT_C1", "riasec": "Conventional",
+        "text_en": "Maintaining accurate financial records and preparing balance sheets.",
+        "text_ur": "Durust maali records rakhna aur balance sheets tayyar karna.",
+        "career_keywords": "accounting and finance" },
+      { "id": "INT_C2", "riasec": "Conventional",
+        "text_en": "Organizing administrative processes and ensuring rules are followed.",
+        "text_ur": "Intizami amaal ko muntazam karna aur qawaneen ki pabandi yaqeeni banana.",
+        "career_keywords": "public administration and civil service" },
+      { "id": "INT_C3", "riasec": "Conventional",
+        "text_en": "Managing budgets, taxes, or systematic economic planning.",
+        "text_ur": "Budget, tax ya munazzam ma'aashi mansooba bandi ka intizaam karna.",
+        "career_keywords": "economics and financial planning, banking and finance" }
+    ]
+  }
+}

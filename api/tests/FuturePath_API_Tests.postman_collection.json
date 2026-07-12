@@ -1,0 +1,328 @@
+{
+  "info": {
+    "name": "FuturePath API Tests",
+    "description": "Complete API test collection for FuturePath Career Counseling System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health Check",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is ok', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.eql('ok');",
+                  "  pm.expect(json.models_loaded).to.be.true;",
+                  "  pm.expect(json.careers).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Options",
+      "item": [
+        {
+          "name": "GET /options",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/options"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has all dropdown options', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.all.keys('genders', 'cities', 'streams', 'activities', 'models');",
+                  "  pm.expect(json.genders).to.include('Male');",
+                  "  pm.expect(json.genders).to.include('Female');",
+                  "  pm.expect(json.streams).to.include('Pre-Engineering');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Career Prediction",
+      "item": [
+        {
+          "name": "POST /predict (Hybrid)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/predict",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ali Khan\",\n  \"Gender\": \"Male\",\n  \"Age\": 18,\n  \"City\": \"Lahore\",\n  \"Stream\": \"Pre-Engineering\",\n  \"Matric_Marks\": 950,\n  \"FSc_Marks\": 480,\n  \"Marks_Math\": 90,\n  \"Marks_Physics\": 85,\n  \"Marks_Computer\": 88,\n  \"Marks_Biology\": 50,\n  \"Aptitude_Logic\": 75,\n  \"Aptitude_Verbal\": 60,\n  \"Aptitude_Spatial\": 70,\n  \"Aptitude_Math\": 80,\n  \"Psych_Openness\": 7.0,\n  \"Psych_Conscientiousness\": 8.0,\n  \"Psych_Extraversion\": 5.0,\n  \"Psych_Agreeableness\": 6.0,\n  \"Psych_Neuroticism\": 3.0,\n  \"Extracurricular_Activity\": \"Robotics Club\",\n  \"Interest_Text\": \"I love computers and programming\",\n  \"Sentiment_Label\": \"Positive\",\n  \"Model_Name\": \"Hybrid\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has primary recommendation', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('primary_recommendation');",
+                  "  pm.expect(json.primary_recommendation.career).to.be.a('string').and.not.empty;",
+                  "  pm.expect(json.recommendations).to.have.lengthOf(3);",
+                  "  const prob = json.primary_recommendation.probability;",
+                  "  pm.expect(prob).to.be.within(0, 1);",
+                  "});",
+                  "// Save career for roadmap test",
+                  "const career = pm.response.json().primary_recommendation.career;",
+                  "pm.collectionVariables.set('predicted_career', career);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /predict (Stacking)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/predict",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Fatima Ahmed\",\n  \"Gender\": \"Female\",\n  \"Age\": 19,\n  \"City\": \"Karachi\",\n  \"Stream\": \"Pre-Medical\",\n  \"Matric_Marks\": 980,\n  \"FSc_Marks\": 490,\n  \"Marks_Math\": 70,\n  \"Marks_Physics\": 80,\n  \"Marks_Computer\": 60,\n  \"Marks_Biology\": 95,\n  \"Aptitude_Logic\": 80,\n  \"Aptitude_Verbal\": 85,\n  \"Aptitude_Spatial\": 60,\n  \"Aptitude_Math\": 70,\n  \"Psych_Openness\": 8.0,\n  \"Psych_Conscientiousness\": 9.0,\n  \"Psych_Extraversion\": 6.0,\n  \"Psych_Agreeableness\": 8.0,\n  \"Psych_Neuroticism\": 4.0,\n  \"Extracurricular_Activity\": \"Social Work\",\n  \"Interest_Text\": \"I love biology and helping people\",\n  \"Sentiment_Label\": \"Positive\",\n  \"Model_Name\": \"Stacking\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Used Stacking model', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.used_model).to.include('Stacking');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Roadmap",
+      "item": [
+        {
+          "name": "GET /roadmap (predicted career)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/roadmap?career={{predicted_career}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 404', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('Has roadmap fields', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('career');",
+                  "    pm.expect(json).to.have.property('description');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /roadmap (invalid career → 404)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/roadmap?career=Fake_Career_XYZ"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 for invalid career', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. SHAP Explainability",
+      "item": [
+        {
+          "name": "POST /shap",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/shap",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Gender\": \"Male\",\n  \"Age\": 18,\n  \"City\": \"Lahore\",\n  \"Stream\": \"Pre-Engineering\",\n  \"Matric_Marks\": 950,\n  \"FSc_Marks\": 480,\n  \"Marks_Math\": 90,\n  \"Marks_Physics\": 85,\n  \"Marks_Computer\": 88,\n  \"Marks_Biology\": 50,\n  \"Aptitude_Logic\": 75,\n  \"Aptitude_Verbal\": 60,\n  \"Aptitude_Spatial\": 70,\n  \"Aptitude_Math\": 80,\n  \"Psych_Openness\": 7.0,\n  \"Psych_Conscientiousness\": 8.0,\n  \"Psych_Extraversion\": 5.0,\n  \"Psych_Agreeableness\": 6.0,\n  \"Psych_Neuroticism\": 3.0,\n  \"Extracurricular_Activity\": \"Robotics Club\",\n  \"Interest_Text\": \"I love programming\",\n  \"Sentiment_Label\": \"Positive\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns 10 top features', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.top_features).to.have.lengthOf(10);",
+                  "  pm.expect(json.top_features[0]).to.have.all.keys('feature', 'value');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. AI Chat",
+      "item": [
+        {
+          "name": "POST /chat (skill question)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/chat",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"What skills do I need for Software Engineering?\",\n  \"recommended_career\": \"Software Engineer\",\n  \"city\": \"Lahore\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has response text', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.response).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /chat (Urdu message)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/chat",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Mujhe roadmap batao\",\n  \"recommended_career\": \"Software Engineer\",\n  \"city\": \"Lahore\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response not empty', () => {",
+                  "  pm.expect(pm.response.json().response).to.not.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Session & PDF",
+      "item": [
+        {
+          "name": "POST /save_session",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/save_session",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"student\": {\n    \"name\": \"Ali Khan\",\n    \"City\": \"Lahore\",\n    \"Stream\": \"Pre-Engineering\",\n    \"Matric_Marks\": 950,\n    \"FSc_Marks\": 480,\n    \"Extracurricular_Activity\": \"Robotics Club\"\n  },\n  \"prediction\": {\n    \"used_model\": \"Hybrid\",\n    \"primary_recommendation\": { \"career\": \"Software Engineer\" },\n    \"recommendations\": []\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is saved', () => {",
+                  "  pm.expect(pm.response.json().status).to.eql('saved');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /export_pdf",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/export_pdf",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"student\": {\n    \"name\": \"Ali Khan\",\n    \"City\": \"Lahore\",\n    \"Stream\": \"Pre-Engineering\",\n    \"Matric_Marks\": 950,\n    \"FSc_Marks\": 480,\n    \"Extracurricular_Activity\": \"Robotics Club\"\n  },\n  \"prediction\": {\n    \"used_model\": \"Hybrid\",\n    \"primary_recommendation\": {\n      \"career\": \"Software Engineer\",\n      \"probability\": 0.85,\n      \"description\": \"Build software applications\",\n      \"roadmap_steps\": [\"Complete FSc\", \"Join CS degree\"],\n      \"skills_required\": [\"Python\", \"JavaScript\"],\n      \"top_universities\": [\"NUST\", \"FAST\"]\n    },\n    \"recommendations\": []\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns PDF', () => {",
+                  "  pm.expect(pm.response.headers.get('content-type')).to.include('application/pdf');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
