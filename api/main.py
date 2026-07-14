@@ -288,6 +288,11 @@ def _compute_shap_explanation(payload: dict, top_career: str = "") -> dict:
     else:
         sv = shap_vals[0]
 
+    # Track two accumulators per group:
+    #   groups     – signed net sum  (used for direction: supports / reduces)
+    #   abs_groups – sum of |individual SHAP|  (used for pie chart size)
+    # Without abs_groups, opposing RIASEC features cancel each other out and
+    # the pie chart shows RIASEC as tiny even when it influenced the decision.
     groups = {
         "Academic Stream": 0.0,
         "Academic Marks": 0.0,
@@ -297,29 +302,42 @@ def _compute_shap_explanation(payload: dict, top_career: str = "") -> dict:
         "Activity and Engineered Fit": 0.0,
         "Other Factors": 0.0,
     }
+    abs_groups = {k: 0.0 for k in groups}
 
     for i, col in enumerate(feature_names):
         val = float(sv[i])
         if col == "Stream":
             groups["Academic Stream"] += val
+            abs_groups["Academic Stream"] += abs(val)
         elif col in ["FSc_Marks", "Marks_Biology", "Marks_Physics", "Marks_Chemistry", "Marks_Math", "Marks_Computer", "FSc_Percentage", "Avg_Subject_Marks"]:
             groups["Academic Marks"] += val
+            abs_groups["Academic Marks"] += abs(val)
         elif col in ["Aptitude_Logic", "Aptitude_Verbal", "Aptitude_Spatial", "Aptitude_Math", "Aptitude_Avg"]:
             groups["Aptitude Test"] += val
+            abs_groups["Aptitude Test"] += abs(val)
         elif col in ["Psych_Openness", "Psych_Conscientiousness", "Psych_Extraversion", "Psych_Agreeableness", "Psych_Neuroticism"]:
             groups["Personality Profile"] += val
+            abs_groups["Personality Profile"] += abs(val)
         elif col in ["Interest_R", "Interest_I", "Interest_A", "Interest_S", "Interest_E", "Interest_C", "Top_RIASEC_Score"]:
             groups["RIASEC Interests"] += val
+            abs_groups["RIASEC Interests"] += abs(val)
         elif col in ["Extracurricular_Activity"]:
             groups["Activity and Engineered Fit"] += val
+            abs_groups["Activity and Engineered Fit"] += abs(val)
         else:
             groups["Other Factors"] += val
+            abs_groups["Other Factors"] += abs(val)
 
     top_features = [
-        {"feature": key, "value": round(value, 4), "direction": "supports" if value >= 0 else "reduces"}
+        {
+            "feature": key,
+            "value": round(value, 4),           # signed net (for direction label)
+            "abs_value": round(abs_groups[key], 4),  # sum of |SHAP| (for pie chart)
+            "direction": "supports" if value >= 0 else "reduces",
+        }
         for key, value in groups.items()
     ]
-    top_features = sorted(top_features, key=lambda item: abs(item["value"]), reverse=True)
+    top_features = sorted(top_features, key=lambda item: item["abs_value"], reverse=True)
     return {"career": top_career, "predicted_class": pred_class, "top_features": top_features}
 
 
@@ -484,13 +502,19 @@ def _execute_tool(name: str, arguments: dict) -> dict:
     """Execute the corresponding web search or scraper tool and return JSON result."""
     from scrapers.web_tools import search_duckduckgo, web_scrape
     from scrapers.youtube_api import search_youtube_videos
+    from scrapers.tavily_search import search_tavily
     from scrapers.playwright_scraper import scrape_udemy_courses
     import asyncio
 
     try:
-        if name == "google_search":
+        if name in ("google_search", "tavily_search"):
             q = arguments.get("query", "")
-            return {"results": search_duckduckgo(q)}
+            # Try Tavily first (higher quality), fall back to DuckDuckGo if key missing
+            results = search_tavily(q, max_results=5)
+            if not results:
+                print(f"[Tool] Tavily returned no results for '{q}', falling back to DuckDuckGo")
+                results = search_duckduckgo(q)
+            return {"results": results}
         elif name == "web_scrape":
             u = arguments.get("url", "")
             return {"text": web_scrape(u)}
@@ -728,56 +752,145 @@ def predict(req: PredictRequest, user=Depends(get_current_user)):
 
         proba = model.predict_proba(X)[0]
 
-        # Apply neuro-symbolic stream eligibility constraints based on actual Pakistani university admission criteria
-        # (FAST, NUST, UET, COMSATS, Air University, and private medical colleges). This allows the ML model's learned 
-        # cross-stream predictions (e.g. Pre-Engineering -> BS Computer Science) to surface instead of being arbitrarily discarded.
-        stream_careers = {
-            "Arts": [
-                "BBA (Business Admin)", "BS Accounting & Finance", "BS Animation & VFX",
-                "BS English Literature", "BS Fashion Design", "BS Graphic Design",
-                "BS International Relations", "BS Marketing", "BS Psychology",
-                "Digital Marketing", "LLB (Lawyer)", "Pakistan Army/Navy/PAF"
-            ],
-            "ICS": [
-                "BS Artificial Intelligence", "BS Computer Science", "BS Cyber Security",
-                "BS Data Science", "BS Game Development", "Ethical Hacking",
-                "Software Engineering", "Web Development", "BS Mathematics", "BS Physics",
-                "BBA (Business Admin)", "BS Accounting & Finance", "BS Marketing",
-                "Digital Marketing", "BS Psychology", "LLB (Lawyer)",
-                "Pakistan Army/Navy/PAF", "Pilot (Aviation)"
-            ],
-            "Pre-Engineering": [
-                "Aerospace Engineering", "BS Mathematics", "BS Physics",
-                "Chemical Engineering", "Civil Engineering", "Electrical Engineering",
-                "Mechanical Engineering", "Pakistan Army/Navy/PAF", "Pilot (Aviation)",
-                "BS Artificial Intelligence", "BS Computer Science", "BS Cyber Security",
-                "BS Data Science", "BS Game Development", "Ethical Hacking",
-                "Software Engineering", "Web Development",
-                "BBA (Business Admin)", "BS Accounting & Finance", "LLB (Lawyer)"
-            ],
-            "Pre-Medical": [
-                "BDS (Dentist)", "BS Agriculture", "BS Food Science",
-                "BS Medical Lab Tech", "BS Nursing", "BS Nutrition & Dietetics",
-                "DPT (Physical Therapy)", "DVM (Veterinary)", "MBBS (Doctor)",
-                "Pharm-D (Pharmacist)", "BS Psychology",
-                "BBA (Business Admin)", "BS Accounting & Finance", "LLB (Lawyer)",
-                "Pakistan Army/Navy/PAF",
-                "BS Computer Science", "Software Engineering",
-                "BS Artificial Intelligence", "BS Cyber Security", "BS Data Science",
-                "BS Game Development", "Ethical Hacking", "Web Development"
-                # Note: Computing disciplines require additional/deficiency Math courses under HEC criteria
-            ]
+        # ── Cross-stream eligibility with 3-tier probability weighting ────────────
+        # Based on real Pakistani HEC / university admission pathways.
+        # Tier system:
+        #   primary   – direct admission, full probability (multiplier 1.0)
+        #   secondary – widely cross-accessible (e.g. Pre-Engineering → CS),
+        #               probability slightly reduced (multiplier 0.82)
+        #   tertiary  – possible with deficiency courses / open-admission,
+        #               probability further reduced (multiplier 0.65)
+        # Careers absent from all tiers for a stream → hard-blocked (prob = 0).
+        # This lets a Pre-Medical student with strong CS aptitude still see CS
+        # careers while ensuring medical careers dominate their top-3.
+
+        TIER_MULTIPLIERS = {"primary": 1.0, "secondary": 0.82, "tertiary": 0.65}
+
+        stream_career_tiers = {
+            # ── Pre-Engineering ──────────────────────────────────────────────────
+            # Primary : all engineering disciplines + pure sciences
+            # Secondary: CS/IT (FAST, NUST, UET openly accept PE), Defence, Aviation
+            # Tertiary : Business, Law, Psychology (open-admission / evening programs)
+            "Pre-Engineering": {
+                "primary": [
+                    "Aerospace Engineering", "Chemical Engineering", "Civil Engineering",
+                    "Electrical Engineering", "Mechanical Engineering",
+                    "BS Mathematics", "BS Physics",
+                ],
+                "secondary": [
+                    "BS Artificial Intelligence", "BS Computer Science", "BS Cyber Security",
+                    "BS Data Science", "BS Game Development", "Ethical Hacking",
+                    "Software Engineering", "Web Development",
+                    "Pakistan Army/Navy/PAF", "Pilot (Aviation)",
+                    "BS Graphic Design",         # design programs accept PE
+                    "BS Animation & VFX",        # media universities accept PE
+                ],
+                "tertiary": [
+                    "BBA (Business Admin)", "BS Accounting & Finance",
+                    "BS Marketing", "Digital Marketing",
+                    "LLB (Lawyer)", "BS Psychology",
+                    "BS International Relations",
+                ],
+            },
+
+            # ── Pre-Medical ──────────────────────────────────────────────────────
+            # Primary : all medical / allied health / bio-sciences
+            # Secondary: Social sciences + business (no hard prereq in Pakistan)
+            # Tertiary : CS / IT (deficiency Math required, but widely done)
+            "Pre-Medical": {
+                "primary": [
+                    "MBBS (Doctor)", "BDS (Dentist)", "Pharm-D (Pharmacist)",
+                    "DVM (Veterinary)", "DPT (Physical Therapy)",
+                    "BS Nursing", "BS Medical Lab Tech", "BS Nutrition & Dietetics",
+                    "BS Agriculture", "BS Food Science",
+                ],
+                "secondary": [
+                    "BS Psychology", "BS International Relations",
+                    "BBA (Business Admin)", "BS Accounting & Finance",
+                    "BS Marketing", "Digital Marketing",
+                    "LLB (Lawyer)", "Pakistan Army/Navy/PAF",
+                ],
+                "tertiary": [
+                    "BS Computer Science", "BS Artificial Intelligence",
+                    "BS Data Science", "BS Cyber Security", "BS Game Development",
+                    "Ethical Hacking", "Software Engineering", "Web Development",
+                    "BS Mathematics", "BS Physics",
+                ],
+            },
+
+            # ── ICS ─────────────────────────────────────────────────────────────
+            # Primary : CS / IT + pure sciences (ICS was designed for this)
+            # Secondary: Business, Law, Defence (widely accessible)
+            # Tertiary : Engineering (some UET/NUST programmes accept ICS with Math)
+            #            Creative / Arts (open-enrollment at private universities)
+            "ICS": {
+                "primary": [
+                    "BS Artificial Intelligence", "BS Computer Science", "BS Cyber Security",
+                    "BS Data Science", "BS Game Development", "Ethical Hacking",
+                    "Software Engineering", "Web Development",
+                    "BS Mathematics", "BS Physics",
+                ],
+                "secondary": [
+                    "BBA (Business Admin)", "BS Accounting & Finance",
+                    "BS Marketing", "Digital Marketing",
+                    "BS Psychology", "BS International Relations",
+                    "LLB (Lawyer)",
+                    "Pakistan Army/Navy/PAF", "Pilot (Aviation)",
+                ],
+                "tertiary": [
+                    "Aerospace Engineering", "Electrical Engineering",
+                    "Civil Engineering", "Mechanical Engineering",
+                    "Chemical Engineering",
+                    "BS Graphic Design", "BS Animation & VFX",
+                    "BS Fashion Design",
+                ],
+            },
+
+            # ── Arts ─────────────────────────────────────────────────────────────
+            # Primary : Business, Social Sciences, Humanities, Creative fields
+            # Secondary: Defence (open to Arts), general computing (many institutes)
+            # Tertiary : Technical CS / IT roles (with bridging courses)
+            "Arts": {
+                "primary": [
+                    "BBA (Business Admin)", "BS Accounting & Finance",
+                    "BS Marketing", "Digital Marketing",
+                    "BS English Literature", "BS International Relations",
+                    "BS Psychology", "LLB (Lawyer)",
+                    "BS Fashion Design", "BS Graphic Design", "BS Animation & VFX",
+                ],
+                "secondary": [
+                    "Pakistan Army/Navy/PAF",
+                    "Web Development",          # many Arts students enter web/design
+                    "BS Food Science",          # home economics / arts overlap
+                ],
+                "tertiary": [
+                    "BS Computer Science", "BS Artificial Intelligence",
+                    "BS Data Science", "BS Cyber Security",
+                    "Software Engineering", "Ethical Hacking",
+                    "BS Game Development",
+                ],
+            },
         }
-        allowed = stream_careers.get(req.Stream, [])
-        if allowed:
-            mask = np.zeros_like(proba)
-            for idx, name in career_map.items():
-                if name in allowed:
-                    mask[idx] = 1.0
-            proba = proba * mask
-            p_sum = proba.sum()
-            if p_sum > 0:
-                proba = proba / p_sum
+
+        tiers = stream_career_tiers.get(req.Stream, {})
+
+        # Build reverse lookup: career_name → tier_name
+        career_to_tier: dict = {}
+        for tier_name, tier_list in tiers.items():
+            for career_name in tier_list:
+                career_to_tier[career_name] = tier_name
+
+        # Apply stream masking + tier multipliers in a single pass
+        for idx, name in career_map.items():
+            if name not in career_to_tier:
+                proba[idx] = 0.0                        # hard-block: not accessible from this stream
+            else:
+                tier = career_to_tier[name]
+                proba[idx] = proba[idx] * TIER_MULTIPLIERS[tier]
+
+        p_sum = proba.sum()
+        if p_sum > 0:
+            proba = proba / p_sum
 
         # Calculate suitability score based on student's actual profile (RIASEC + Aptitude)
         career_profiles = {
@@ -836,11 +949,12 @@ def predict(req: PredictRequest, user=Depends(get_current_user)):
             
             suitability_scores[career_name] = 0.5 * r_fit + 0.5 * a_fit
 
-        # Adjust probabilities using suitability scores
+        # Adjust probabilities using suitability scores (multiplicative only).
+        # Using additive boost was resurrecting stream-masked careers (e.g. BDS for Pre-Engineering).
+        # Multiplicative ensures proba[idx]==0 stays 0 while boosting high-fit allowed careers.
         for idx, name in career_map.items():
             factor = suitability_scores.get(name, 0.5)
-            # Additive suitability boost (using factor^3 * 0.3) to allow strong interest alignment to surface cross-stream predictions
-            proba[idx] = proba[idx] * (0.5 + factor) + (factor ** 3) * 0.3
+            proba[idx] = proba[idx] * (0.5 + factor)
 
         p_sum = proba.sum()
         if p_sum > 0:
@@ -893,14 +1007,17 @@ def predict(req: PredictRequest, user=Depends(get_current_user)):
             "Pilot (Aviation)": "Military & Aviation"
         }
 
-        # Select top 3 with category diversity
+        # Select top 3 with soft category diversity.
+        # Cap = 3 means all 3 slots can be from the same domain when the model
+        # genuinely ranks them highest (e.g. Pre-Engineering student loving all engineering).
+        # Previously cap=2 was incorrectly blocking valid same-domain rank-3 results.
         sorted_indices = np.argsort(proba)[::-1]
         top3_idx = []
         category_counts = {}
         for idx in sorted_indices:
             career_name = career_map.get(idx, "")
             category = career_categories.get(career_name, "Other")
-            if category_counts.get(category, 0) >= 2:
+            if category_counts.get(category, 0) >= 3:
                 continue
             top3_idx.append(idx)
             category_counts[category] = category_counts.get(category, 0) + 1
@@ -1754,6 +1871,7 @@ def chat(req: ChatRequest, user=Depends(get_current_user)):
     groq_key = os.environ.get("GROQ_API_KEY", "")
     ai_response = None
     search_used = False
+    tools_used = []      # list of {name, query} for UI display
     
     if groq_key:
         try:
@@ -1858,6 +1976,12 @@ def chat(req: ChatRequest, user=Depends(get_current_user)):
                     tool_name = tool_call.function.name
                     tool_args = json.loads(tool_call.function.arguments)
                     
+                    # Track for UI display
+                    tools_used.append({
+                        "name": tool_name,
+                        "query": tool_args.get("query") or tool_args.get("url", "")
+                    })
+                    
                     # Execute tool
                     tool_result = _execute_tool(tool_name, tool_args)
                     search_used = True
@@ -1929,22 +2053,27 @@ def chat(req: ChatRequest, user=Depends(get_current_user)):
     except Exception as e:
         print(f"[Chat] Memory save error: {e}")
 
-    return {"response": ai_response, "conversation_id": conversation_id}
+    return {"response": ai_response, "conversation_id": conversation_id, "tools_used": tools_used}
 
 
 
 @app.post("/voice")
 async def voice_transcribe(audio: UploadFile = File(...)):
-    """Transcribe voice input (Urdu/English) using local Whisper model."""
+    """Transcribe voice input using Groq whisper-large-v3 (falls back to local Whisper)."""
     try:
         audio_bytes = await audio.read()
-        suffix = "." + (audio.filename.split(".")[-1] if audio.filename else "wav")
+        suffix = "." + (audio.filename.split(".")[-1] if audio.filename and "." in audio.filename else "wav")
         result = transcribe_audio_bytes(audio_bytes, suffix=suffix)
+        if not result.get("text"):
+            raise HTTPException(status_code=422, detail="Could not transcribe audio — please speak clearly and try again.")
         return {
-            "text": result["text"],
-            "language": result["language"],
-            "segments": result["segments"]
+            "text":     result["text"],
+            "language": result.get("language", "en"),
+            "segments": result.get("segments", []),
+            "provider": result.get("provider", "unknown"),
         }
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

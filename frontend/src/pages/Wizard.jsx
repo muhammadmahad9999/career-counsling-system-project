@@ -126,24 +126,51 @@ function scoreHolland(answers) {
 /* ───────── component ───────── */
 const Wizard = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => {
+    const saved = localStorage.getItem("futurepath-wizard-step");
+    return saved ? Number(saved) : 1;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   // profile state
-  const [profile, setProfile] = useState({
-    name: "", Stream: "", Extracurricular_Activity: "",
-    FSc_Marks: 850,
-    Marks_Math: 70, Marks_Physics: 70,
-    Marks_Computer: 70, Marks_Biology: 70,
-    Marks_Chemistry: 70,
-    Model_Name: "Hybrid",
+  const [profile, setProfile] = useState(() => {
+    const saved = localStorage.getItem("futurepath-wizard-profile");
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {
+      name: "", Stream: "", Extracurricular_Activity: "",
+      FSc_Marks: 850,
+      Marks_Math: 70, Marks_Physics: 70,
+      Marks_Computer: 70, Marks_Biology: 70,
+      Marks_Chemistry: 70,
+      Model_Name: "Hybrid",
+    };
   });
 
   // test answers
-  const [aptAnswers, setAptAnswers] = useState({});
-  const [psychAnswers, setPsychAnswers] = useState({});
-  const [intAnswers, setIntAnswers] = useState({});
+  const [aptAnswers, setAptAnswers] = useState(() => {
+    const saved = localStorage.getItem("futurepath-wizard-aptAnswers");
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {};
+  });
+  const [psychAnswers, setPsychAnswers] = useState(() => {
+    const saved = localStorage.getItem("futurepath-wizard-psychAnswers");
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {};
+  });
+  const [intAnswers, setIntAnswers] = useState(() => {
+    const saved = localStorage.getItem("futurepath-wizard-intAnswers");
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {};
+  });
 
   // options from API
   const [options, setOptions] = useState({
@@ -152,6 +179,27 @@ const Wizard = () => {
     models: ["Ensemble", "Stacking", "Hybrid"],
   });
   const [backendOk, setBackendOk] = useState(false);
+
+  // Sync to localStorage
+  useEffect(() => {
+    localStorage.setItem("futurepath-wizard-step", step.toString());
+  }, [step]);
+
+  useEffect(() => {
+    localStorage.setItem("futurepath-wizard-profile", JSON.stringify(profile));
+  }, [profile]);
+
+  useEffect(() => {
+    localStorage.setItem("futurepath-wizard-aptAnswers", JSON.stringify(aptAnswers));
+  }, [aptAnswers]);
+
+  useEffect(() => {
+    localStorage.setItem("futurepath-wizard-psychAnswers", JSON.stringify(psychAnswers));
+  }, [psychAnswers]);
+
+  useEffect(() => {
+    localStorage.setItem("futurepath-wizard-intAnswers", JSON.stringify(intAnswers));
+  }, [intAnswers]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -248,6 +296,7 @@ const Wizard = () => {
       const prediction = await predictCareer(payload);
       const session = { student: payload, studentName: profile.name, prediction };
       savePredictionSession(session);
+
       navigate("/results", { state: session });
     } catch (e) {
       setError(e?.response?.data?.detail || "Prediction failed. Check backend.");
@@ -285,7 +334,25 @@ const Wizard = () => {
                 className={`flex-1 h-2 rounded-full transition-all ${i + 1 <= step ? "bg-gradient-to-r from-primary-cyan to-accent-teal" : "bg-white/10"}`} />
             ))}
           </div>
-          <p className="text-xs text-text-gray mb-8">Step {step} of 5 — {Math.round(progress)}% complete</p>
+          <div className="flex justify-between items-center mb-8">
+            <p className="text-xs text-text-gray">Step {step} of 5 — {Math.round(progress)}% complete</p>
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("Are you sure you want to clear all your answers and start over?")) {
+                  localStorage.removeItem("futurepath-wizard-step");
+                  localStorage.removeItem("futurepath-wizard-profile");
+                  localStorage.removeItem("futurepath-wizard-aptAnswers");
+                  localStorage.removeItem("futurepath-wizard-psychAnswers");
+                  localStorage.removeItem("futurepath-wizard-intAnswers");
+                  window.location.reload();
+                }
+              }}
+              className="text-xs text-rose-400 hover:text-rose-300 hover:underline transition-colors"
+            >
+              Reset Assessment
+            </button>
+          </div>
 
           {/* ── Content Card ── */}
           <div className="bg-card-bg border border-card-border rounded-[32px] p-6 md:p-10 shadow-[0_0_50px_rgba(0,0,0,0.35)] relative overflow-hidden min-h-[500px]">

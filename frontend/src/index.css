@@ -50,3 +50,50 @@
     scrollbar-width: none;
   }
 }
+
+/* ── Voice Wave Animation ── */
+@keyframes voice-wave {
+  0%, 100% {
+    height: 8px;
+  }
+  50% {
+    height: 28px;
+  }
+}
+
+.voice-wave-bar {
+  display: inline-block;
+  width: 3px;
+  background-color: #f43f5e; /* rose-500 */
+  border-radius: 9999px;
+  transform-origin: bottom;
+  animation: voice-wave 1s ease-in-out infinite;
+}
+
+.voice-wave-bar:nth-child(1) { animation-delay: 0.1s; }
+.voice-wave-bar:nth-child(2) { animation-delay: 0.3s; }
+.voice-wave-bar:nth-child(3) { animation-delay: 0.6s; }
+.voice-wave-bar:nth-child(4) { animation-delay: 0.2s; }
+.voice-wave-bar:nth-child(5) { animation-delay: 0.4s; }
+.voice-wave-bar:nth-child(6) { animation-delay: 0.7s; }
+
+/* ── Neon Drifting Animation ── */
+@keyframes drift {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+}
+
+.animate-drift-slow {
+  animation: drift 20s ease-in-out infinite;
+}
+
+.animate-drift-slower {
+  animation: drift 28s ease-in-out infinite;
+}

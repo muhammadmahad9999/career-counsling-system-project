@@ -75,7 +75,9 @@ export const exportPdf = async (payload) => {
 
 export const transcribeVoice = async (audioBlob) => {
   const formData = new FormData();
-  formData.append("audio", audioBlob, "voice.wav");
+  // Browsers record in audio/webm by default — Groq whisper-large-v3 accepts webm
+  const ext = audioBlob.type.includes("webm") ? "webm" : "wav";
+  formData.append("audio", audioBlob, `voice.${ext}`);
   const { data } = await client.post("/voice", formData, {
     headers: {
       "Content-Type": "multipart/form-data",

@@ -108,54 +108,129 @@ const formatConversationTime = (value) => {
   return date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
-const renderMessageContent = (content, onSave) => {
-  if (!content) return "";
-  
-  const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-  
-  markdownLinkRegex.lastIndex = 0;
-  
-  while ((match = markdownLinkRegex.exec(content)) !== null) {
-    const textBefore = content.substring(lastIndex, match.index);
-    if (textBefore) {
-      parts.push(...parseRawUrls(textBefore, onSave));
-    }
-    
-    const [_, linkText, linkUrl] = match;
-    parts.push(
-      <span key={`md-link-container-${match.index}`} className="inline-flex items-center gap-1">
-        <a 
-          href={linkUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary-cyan underline hover:text-cyan-300 font-semibold"
-        >
-          {linkText}
-        </a>
-        {onSave && (
-          <button
-            type="button"
-            onClick={() => onSave(linkUrl, linkText)}
-            className="text-[10px] px-1 py-0.5 rounded bg-white/5 hover:bg-primary-cyan/20 text-accent-teal hover:text-white transition-colors"
-            title="Save to Bookmarks"
+// ── Tool display config ──────────────────────────────────────────────────────
+const TOOL_META = {
+  get_youtube_videos: { label: "YouTube Search", icon: "🎥", color: "#f43f5e" },
+  google_search:      { label: "Web Search",     icon: "🔍", color: "#00e5ff" },
+  tavily_search:      { label: "Tavily Search",  icon: "🌐", color: "#06b6d4" },
+  web_scrape:         { label: "Reading Page",   icon: "📄", color: "#8b5cf6" },
+  get_online_courses: { label: "Course Search",  icon: "📚", color: "#10b981" },
+};
+
+const ToolCallIndicator = ({ tools }) => {
+  if (!tools || tools.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-2">
+      {tools.map((t, i) => {
+        const meta = TOOL_META[t.name] || { label: t.name, icon: "🛠️", color: "#6b7280" };
+        return (
+          <span
+            key={i}
+            title={t.query ? `Query: ${t.query}` : t.name}
+            style={{ borderColor: meta.color, color: meta.color }}
+            className="inline-flex items-center gap-1 text-[10px] font-semibold border rounded-full px-2 py-0.5 bg-white/5"
           >
-            🔖
-          </button>
-        )}
-      </span>
-    );
-    lastIndex = markdownLinkRegex.lastIndex;
+            <span>{meta.icon}</span>
+            <span>{meta.label}</span>
+            {t.query && (
+              <span className="opacity-60 max-w-[120px] truncate">— {t.query}</span>
+            )}
+          </span>
+        );
+      })}
+    </div>
+  );
+};
+
+// ── Full Markdown Renderer ────────────────────────────────────────────────────
+const renderMarkdown = (text, onSave) => {
+  if (!text) return null;
+
+  const urlRegex = /(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))|(https?:\/\/[^\s]+)/g;
+
+  const renderInline = (line) => {
+    // Handle bold (**text** or __text__), italic (*text* or _text_), inline code `code`
+    const parts = [];
+    const inlineRe = /(\*\*([^*]+)\*\*|__([^_]+)__)|(\*([^*]+)\*|_([^_]+)_)|(`([^`]+)`)|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g;
+    let last = 0;
+    let m;
+    inlineRe.lastIndex = 0;
+    while ((m = inlineRe.exec(line)) !== null) {
+      if (m.index > last) parts.push(line.slice(last, m.index));
+      if (m[1])  parts.push(<strong key={m.index} className="font-bold text-white">{m[2] || m[3]}</strong>);
+      else if (m[4])  parts.push(<em key={m.index} className="italic text-gray-300">{m[5] || m[6]}</em>);
+      else if (m[7])  parts.push(<code key={m.index} className="bg-white/10 rounded px-1 text-xs font-mono text-emerald-300">{m[8]}</code>);
+      else if (m[9]) {
+        // Markdown link
+        const href = m[10]; const label = m[9];
+        parts.push(
+          <span key={m.index} className="inline-flex items-center gap-1">
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary-cyan underline hover:text-cyan-300 font-semibold">{label}</a>
+            {onSave && <button type="button" onClick={() => onSave(href, label)} className="text-[10px] px-1 py-0.5 rounded bg-white/5 hover:bg-primary-cyan/20 text-accent-teal" title="Save">🔖</button>}
+          </span>
+        );
+      } else if (m[11]) {
+        // Raw URL
+        const href = m[11].replace(/[.,;:)]$/, "");
+        parts.push(
+          <span key={m.index} className="inline-flex items-center gap-1">
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary-cyan underline hover:text-cyan-300 font-semibold">{href}</a>
+            {onSave && <button type="button" onClick={() => onSave(href, "Resource")} className="text-[10px] px-1 py-0.5 rounded bg-white/5 hover:bg-primary-cyan/20 text-accent-teal" title="Save">🔖</button>}
+          </span>
+        );
+      }
+      last = inlineRe.lastIndex;
+    }
+    if (last < line.length) parts.push(line.slice(last));
+    return parts.length ? parts : line;
+  };
+
+  const lines = text.split("\n");
+  const elements = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Blank line
+    if (line.trim() === "") { elements.push(<div key={`br-${i}`} className="h-2" />); i++; continue; }
+
+    // H1 / H2 / H3
+    if (line.startsWith("### ")) { elements.push(<h3 key={i} className="font-bold text-sm text-primary-cyan mt-3 mb-1">{renderInline(line.slice(4))}</h3>); i++; continue; }
+    if (line.startsWith("## "))  { elements.push(<h2 key={i} className="font-bold text-base text-primary-cyan mt-3 mb-1">{renderInline(line.slice(3))}</h2>); i++; continue; }
+    if (line.startsWith("# "))   { elements.push(<h1 key={i} className="font-bold text-lg text-white mt-3 mb-1">{renderInline(line.slice(2))}</h1>); i++; continue; }
+
+    // Horizontal rule
+    if (/^[-*_]{3,}$/.test(line.trim())) { elements.push(<hr key={i} className="border-white/10 my-2" />); i++; continue; }
+
+    // Numbered list — collect consecutive items
+    if (/^\d+\.\s/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+        items.push(<li key={i} className="mb-1">{renderInline(lines[i].replace(/^\d+\.\s/, ""))}</li>);
+        i++;
+      }
+      elements.push(<ol key={`ol-${i}`} className="list-decimal list-inside space-y-0.5 text-sm mb-2 text-gray-200">{items}</ol>);
+      continue;
+    }
+
+    // Bullet list — -, *, or +
+    if (/^[-*+]\s/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^[-*+]\s/.test(lines[i])) {
+        items.push(<li key={i} className="mb-0.5">{renderInline(lines[i].replace(/^[-*+]\s/, ""))}</li>);
+        i++;
+      }
+      elements.push(<ul key={`ul-${i}`} className="list-disc list-inside space-y-0.5 text-sm mb-2 text-gray-200">{items}</ul>);
+      continue;
+    }
+
+    // Normal paragraph
+    elements.push(<p key={i} className="text-sm leading-relaxed mb-1 text-gray-100">{renderInline(line)}</p>);
+    i++;
   }
-  
-  const textAfter = content.substring(lastIndex);
-  if (textAfter) {
-    parts.push(...parseRawUrls(textAfter, onSave));
-  }
-  
-  return parts;
+
+  return elements;
 };
 
 const ChatDashboard = () => {
@@ -175,12 +250,15 @@ const ChatDashboard = () => {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [voiceLang, setVoiceLang] = useState("en-US"); // Default to English first preference
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState(""); // real-time interim text
+  const [voiceLang, setVoiceLang] = useState("en-US");
   const [conversationId, setConversationId] = useState(() => {
     return localStorage.getItem("active_conversation_id") || "";
   });
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const recognitionRef = useRef(null); // Web Speech API instance
 
   const loadSavedResources = async () => {
     try {
@@ -227,10 +305,18 @@ const ChatDashboard = () => {
 
   const handleSaveResource = async (url, title) => {
     try {
+      const lower = url.toLowerCase();
+      let resType = "other";
+      if (lower.includes("youtube.com") || lower.includes("youtu.be")) resType = "youtube";
+      else if (lower.includes("scholarship") || lower.includes("fellowship")) resType = "scholarship";
+      else if (lower.includes("course") || lower.includes("udemy") || lower.includes("coursera") || lower.includes("edx")) resType = "course";
+      else if (lower.includes("edu") || lower.includes("uni") || lower.includes("university") || lower.includes("admissions")) resType = "university";
+      else if (lower.includes("article") || lower.includes("blog") || lower.includes("news")) resType = "article";
+
       await saveResource({
         title: title || "Suggested Link",
         url: url,
-        resource_type: url.includes("youtube.com") || url.includes("youtu.be") ? "video" : "website",
+        resource_type: resType,
         notes: "Saved from Career Advisor Chat"
       });
       alert("Resource bookmarked successfully!");
@@ -272,61 +358,129 @@ const ChatDashboard = () => {
   };
 
   const toggleListen = async () => {
+    // ── STOP ────────────────────────────────────────────────────────────────
     if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
         mediaRecorderRef.current.stop();
       }
       setIsListening(false);
+      setLiveTranscript("");
       return;
     }
 
+    // ── START: Try Web Speech API first (real-time streaming) ───────────────
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous     = true;  // keep going until user clicks stop
+      recognition.interimResults = true;  // fire results as words are spoken
+      recognition.lang           = "en-US";
+      recognitionRef.current = recognition;
+
+      let confirmed = ""; // finalized phrases accumulated
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setLiveTranscript("");
+        confirmed = "";
+      };
+
+      recognition.onresult = (event) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const chunk = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            confirmed += chunk + " ";
+          } else {
+            interim = chunk; // live word being spoken right now
+          }
+        }
+        const full = (confirmed + interim).trim();
+        setInput(full);          // update input box live
+        setLiveTranscript(interim); // track interim portion
+      };
+
+      recognition.onerror = (e) => {
+        console.warn("[STT] Web Speech error:", e.error);
+        if (e.error !== "no-speech" && e.error !== "aborted") {
+          setIsListening(false);
+          setLiveTranscript("");
+        }
+      };
+
+      recognition.onend = () => {
+        // Browser auto-stops after silence — just update state
+        setIsListening(false);
+        setLiveTranscript("");
+      };
+
+      try {
+        recognition.start();
+        return; // success — don't fall through to Groq path
+      } catch (err) {
+        console.warn("[STT] SpeechRecognition.start() failed, trying Groq:", err);
+        recognitionRef.current = null;
+      }
+    }
+
+    // ── FALLBACK: MediaRecorder → Groq Whisper (batch, for unsupported browsers) ─
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
-      
-      const mediaRecorder = new MediaRecorder(stream);
+
+      const preferredMime = [
+        "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4",
+      ].find((m) => MediaRecorder.isTypeSupported(m)) || "";
+
+      const mediaRecorder = preferredMime
+        ? new MediaRecorder(stream, { mimeType: preferredMime })
+        : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
-      
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(track => track.stop());
-        
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
-        setSending(true);
+        stream.getTracks().forEach((t) => t.stop());
+        if (!audioChunksRef.current.length) { alert("No audio captured."); return; }
+        const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || "audio/webm" });
+        setIsTranscribing(true);
         try {
-          const res = await transcribeVoice(audioBlob);
-          if (res.text) {
-            setInput((prev) => prev + (prev ? " " : "") + res.text.trim());
+          const res = await transcribeVoice(blob);
+          if (res.text && res.text.trim().length > 1) {
+            setInput((p) => (p ? p + " " : "") + res.text.trim());
+          } else {
+            setMessages((c) => [...c, { role: "assistant", content: "I couldn't hear that clearly. Please try again.", tools_used: [] }]);
           }
-        } catch (error) {
-          console.error("Transcription error:", error);
-          alert("Could not transcribe voice. Make sure Whisper is loaded on the backend.");
+        } catch (e) {
+          setMessages((c) => [...c, { role: "assistant", content: "Voice transcription failed. Check your microphone.", tools_used: [] }]);
         } finally {
-          setSending(false);
+          setIsTranscribing(false);
         }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(250);
       setIsListening(true);
     } catch (err) {
-      console.error("Error accessing microphone:", err);
+      console.error("[STT] Mic error:", err);
       alert("Microphone permission denied or unsupported browser.");
     }
   };
 
+
   const snapshot = useMemo(
     () => [
-      ["City", city || "Not set"],
       ["Stream", session?.student?.Stream || "Not set"],
       ["Top match", recommendedCareer || "Not available"],
       ["Model", session?.prediction?.used_model || "Not available"],
     ],
-    [city, recommendedCareer, session]
+    [recommendedCareer, session]
   );
 
   const handleSend = async (text = input) => {
@@ -346,7 +500,11 @@ const ChatDashboard = () => {
         recommended_career: recommendedCareer,
         conversation_id: conversationId,
       });
-      setMessages((current) => [...current, { role: "assistant", content: response.response }]);
+      setMessages((current) => [...current, {
+        role: "assistant",
+        content: response.response,
+        tools_used: response.tools_used || [],
+      }]);
       
       if (response.conversation_id) {
         setConversationId(response.conversation_id);
@@ -423,7 +581,11 @@ const ChatDashboard = () => {
         recommended_career: recommendedCareer,
         conversation_id: conversationId,
       });
-      setMessages((current) => [...current, { role: "assistant", content: response.response }]);
+      setMessages((current) => [...current, {
+        role: "assistant",
+        content: response.response,
+        tools_used: response.tools_used || [],
+      }]);
       
       if (response.conversation_id) {
         setConversationId(response.conversation_id);
@@ -543,12 +705,28 @@ const ChatDashboard = () => {
                       {message.role}
                     </div>
                   </div>
-                  <p className="whitespace-pre-wrap leading-relaxed text-sm">{renderMessageContent(message.content, handleSaveResource)}</p>
+                  {message.role === "assistant" && <ToolCallIndicator tools={message.tools_used} />}
+                  <div className="leading-relaxed">
+                    {message.role === "assistant"
+                      ? renderMarkdown(message.content, handleSaveResource)
+                      : <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    }
+                  </div>
                 </div>
               </div>
             ))}
 
-            {sending ? (
+            {/* Transcription waiting indicator */}
+            {isTranscribing ? (
+              <div className="flex justify-start">
+                <div className="bg-dark/80 border border-rose-500/30 text-gray-100 rounded-[22px] rounded-bl-md p-4 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-rose-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
+                  <span className="w-2 h-2 bg-rose-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
+                  <span className="w-2 h-2 bg-rose-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
+                  <span className="text-xs text-rose-300 font-medium">Transcribing voice...</span>
+                </div>
+              </div>
+            ) : sending ? (
               <div className="flex justify-start">
                 <div className="bg-dark/80 border border-white/10 text-gray-100 rounded-[22px] rounded-bl-md p-4 flex items-center gap-2">
                   <span className="w-2 h-2 bg-primary-cyan rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
@@ -561,6 +739,25 @@ const ChatDashboard = () => {
           </div>
 
           <div className="p-4 border-t border-card-border bg-dark/50">
+            {isListening && (
+              <div className="flex items-center gap-3 mb-2 px-2 h-8 bg-rose-950/20 border border-rose-500/10 rounded-xl py-1">
+                {/* Voice Animation Wave */}
+                <div className="flex items-end gap-0.5 h-full px-1 py-0.5 shrink-0">
+                  <span className="voice-wave-bar" />
+                  <span className="voice-wave-bar" />
+                  <span className="voice-wave-bar" />
+                  <span className="voice-wave-bar" />
+                  <span className="voice-wave-bar" />
+                  <span className="voice-wave-bar" />
+                </div>
+                <span className="text-[11px] text-rose-300 font-medium truncate flex-1">
+                  {liveTranscript
+                    ? <span className="italic opacity-90">"{liveTranscript}"</span>
+                    : "Listening — speak now..."}
+                </span>
+                <span className="text-[10px] text-text-gray shrink-0">click mic to stop</span>
+              </div>
+            )}
             <div className="flex items-center gap-3 bg-dark border border-white/10 rounded-full px-4 py-2">
               <input
                 type="text"
@@ -571,18 +768,21 @@ const ChatDashboard = () => {
                     handleSend();
                   }
                 }}
-                placeholder={isListening ? "Listening..." : "Ask about your roadmap, universities, admissions, or scholarships..."}
+                placeholder={isTranscribing ? "Transcribing..." : isListening ? "🎤 Speaking..." : "Ask about your roadmap, universities, admissions, or scholarships..."}
                 className="flex-1 bg-transparent border-none outline-none text-white placeholder-gray-500 text-sm"
               />
               <button
                 type="button"
                 onClick={toggleListen}
+                disabled={isTranscribing}
                 className={`p-3 rounded-full transition-colors ${
-                  isListening 
-                    ? "bg-rose-500 text-white animate-pulse" 
+                  isListening
+                    ? "bg-rose-500 text-white animate-pulse"
+                    : isTranscribing
+                    ? "bg-rose-900/60 text-rose-400 cursor-wait"
                     : "bg-white/10 text-text-gray hover:text-white hover:bg-white/20"
                 }`}
-                title="Voice Input (Speech-to-Text)"
+                title={isListening ? "Click to stop recording" : "Click to start voice input"}
               >
                 {isListening ? <MicOff size={18} /> : <Mic size={18} />}
               </button>

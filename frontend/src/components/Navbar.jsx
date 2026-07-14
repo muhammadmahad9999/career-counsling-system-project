@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LogOut, User } from 'lucide-react';
+import logoImg from '../assets/logo.png';
 
 const Navbar = () => {
     const { user, signOut } = useAuth();
@@ -13,9 +14,9 @@ const Navbar = () => {
     };
 
     return (
-        <nav className="w-full py-6 px-10 flex justify-between items-center fixed top-0 left-0 bg-transparent z-50 backdrop-blur-sm">
-            <Link to="/" className="text-2xl font-bold font-grotesk tracking-wide text-white">
-                FuturePath <span className="text-primary-cyan">/&gt;</span>
+        <nav className="w-full py-4 px-10 flex justify-between items-center fixed top-0 left-0 bg-transparent z-50 backdrop-blur-sm">
+            <Link to="/" className="flex items-center">
+                <img src={logoImg} alt="FuturePath Logo" className="h-16 w-auto object-contain" />
             </Link>
 
             <div className="hidden md:flex space-x-12 text-sm font-medium text-text-gray">

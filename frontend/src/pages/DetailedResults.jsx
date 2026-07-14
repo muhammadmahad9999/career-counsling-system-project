@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ArrowRight, BarChart2, CheckCircle, MessageSquareText, Route, Sparkles, Download, Save, ThumbsUp, AlertTriangle, PieChart as PieChartIcon, TrendingUp, RefreshCw, MapPin, Building2, Award, Wifi, Users, Brain, Compass, Check, HelpCircle } from "lucide-react";
+import { ArrowRight, BarChart2, CheckCircle, MessageSquareText, Route, Sparkles, Download, Save, ThumbsUp, AlertTriangle, PieChart as PieChartIcon, TrendingUp, RefreshCw, MapPin, Building2, Award, Wifi, Users, Brain, Compass, Check, HelpCircle, Bookmark } from "lucide-react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, PieChart, Pie, Legend, AreaChart, Area } from "recharts";
 
 import Navbar from "../components/Navbar";
@@ -274,9 +274,11 @@ const DetailedResults = () => {
 
   const getCategoryContributions = () => {
     if (!shapData) return [];
+    // Use abs_value (sum of |individual SHAP|) not Math.abs(d.value) (abs of net sum).
+    // Net sum cancels opposing RIASEC features; abs_value correctly reflects total impact.
     let categories = { "Aptitude & Logic": 0, "Personality": 0, "Academics": 0, "Passions & Interests": 0 };
     shapData.forEach(d => {
-      let val = Math.abs(d.value);
+      let val = d.abs_value != null ? d.abs_value : Math.abs(d.value);
       if (d.feature === "Aptitude Test" || d.feature.includes("Aptitude")) {
         categories["Aptitude & Logic"] += val;
       } else if (d.feature === "Personality Profile" || d.feature.includes("Psych")) {
@@ -321,11 +323,17 @@ const DetailedResults = () => {
       let readableName = d.feature.replace(/_/g, " ");
       if (d.feature.includes("TFIDF_Interest") || d.feature === "Interest Statement") readableName = "Interest Statement";
       if (d.feature.includes("TFIDF_Chat") || d.feature === "Counseling Chat") readableName = "Counseling Chat";
-      return { ...d, readableFeature: readableName };
+      // Use abs_value for bar chart height so opposing features don't cancel visually
+      const displayValue = d.abs_value != null ? d.abs_value : Math.abs(d.value);
+      return { ...d, readableFeature: readableName, displayValue };
     });
   }, [shapData]);
 
-  const confidence = Math.round((primary.probability || 0) * 100);
+  // Normalize probabilities relative to the top-3 sum so they display as meaningful %
+  // (raw softmax spreads across ~35 classes making numbers look artificially small)
+  const top3ProbSum = recommendations.reduce((sum, r) => sum + (r.probability || 0), 0);
+  const normPct = (prob) => top3ProbSum > 0 ? Math.round(((prob || 0) / top3ProbSum) * 100) : 0;
+  const confidence = normPct(primary.probability);
 
   return (
     <div className="min-h-screen bg-dark text-white font-grotesk">
@@ -774,7 +782,7 @@ const DetailedResults = () => {
                     <span className="text-sm uppercase tracking-[0.25em] text-primary-cyan">
                       Rank {item.rank}
                     </span>
-                    <span className="text-xl font-bold">{Math.round(item.probability * 100)}%</span>
+                    <span className="text-xl font-bold">{normPct(item.probability)}%</span>
                   </div>
                   <h3 className="text-2xl font-bold mb-3">{item.career}</h3>
                   <p className="text-text-gray leading-relaxed mb-5">
@@ -1002,11 +1010,14 @@ const DetailedResults = () => {
                           <Tooltip 
                             cursor={{ fill: '#ffffff10' }} 
                             contentStyle={{ backgroundColor: '#0d1117', borderColor: '#30363d', color: '#fff', borderRadius: '8px' }} 
-                            formatter={(val) => [val > 0 ? `+${val.toFixed(3)}` : val.toFixed(3), 'Impact']} 
+                            formatter={(val, name, props) => {
+                              const direction = props.payload?.direction || (props.payload?.value >= 0 ? 'supports' : 'reduces');
+                              return [`${val.toFixed(3)} (${direction})`, 'Impact'];
+                            }}
                           />
-                          <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                          <Bar dataKey="displayValue" radius={[0, 4, 4, 0]} barSize={20}>
                             {formattedShapData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.value > 0 ? "#10b981" : "#f43f5e"} />
+                              <Cell key={`cell-${index}`} fill={entry.value >= 0 ? "#10b981" : "#f43f5e"} />
                             ))}
                           </Bar>
                         </BarChart>
